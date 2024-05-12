@@ -1,8 +1,73 @@
 import sys
 from PyQt5.QtWidgets import *
-from PyQt5 import QtCore, QtGui, QtWidgets
+from PyQt5 import QtCore, QtWidgets
 from PyQt5.QtGui import QIcon
 import psycopg2
+
+
+# conn = psycopg2.connect(
+#                 dbname="task",
+#                 user="postgres",
+#                 password="postgres",
+#                 host="localhost",
+#                 port="5432"
+#             )
+
+class Database:
+    _instance = None
+
+    def __init__(self):
+        if Database._instance is None:
+            Database._instance = self
+            self.connection = None
+            self.connect()
+        else:
+            raise Exception("You cannot create another Database class")
+
+    @staticmethod
+    def get_instance():
+        if not Database._instance:
+            Database()
+        return Database._instance
+
+    def connect(self):
+        """Подключается к базе данных."""
+        try:
+            self.connection = psycopg2.connect(
+                dbname="task",
+                user="postgres",
+                password="postgres",
+                host="localhost",
+                port="5432"
+            )
+        except psycopg2.DatabaseError as e:
+            print(f"Ошибка подключения к базе данных: {e}")
+            raise e
+
+    def close(self):
+        """Закрывает соединение с базой данных."""
+        if self.connection:
+            self.connection.close()
+
+    def query(self, sql):
+        """Выполняет SQL запрос и возвращает данные."""
+        with self.connection.cursor() as cursor:
+            cursor.execute(sql)
+            return cursor.fetchall()
+
+    def save_product(self, name, price, quantity, category_id):
+        """Добавляет продукт в базу данных."""
+        try:
+            with self.connection.cursor() as cursor:
+                cursor.execute(
+                    "INSERT INTO task (name, price, quantity, category_id) VALUES (%s, %s, %s, %s)",
+                    (name, price, quantity, category_id)
+                )
+                self.connection.commit()
+                print("Продукт успешно добавлен в базу данных.")
+        except (Exception, psycopg2.Error) as error:
+            print("Ошибка при работе с PostgreSQL:", error)
+            self.connection.rollback()
 
 
 class ProductForm(QMainWindow):
@@ -46,6 +111,7 @@ class ProductForm(QMainWindow):
         self.comboBox = QtWidgets.QComboBox(self.centralwidget)
         self.comboBox.setGeometry(QtCore.QRect(210, 290, 231, 41))
         self.comboBox.setObjectName("comboBox")
+        self.load_categories()
 
         self.pushButtonAdd = QtWidgets.QPushButton(self.centralwidget)
         self.pushButtonAdd.setGeometry(QtCore.QRect(30, 400, 121, 51))
@@ -127,29 +193,39 @@ class ProductForm(QMainWindow):
         item = self.tableWidget.horizontalHeaderItem(4)
         item.setText(_translate("MainWindow", "Категория"))
 
-    #
     def save_product(self):
         name_val = self.lineName.text()
         price_val = int(self.linePrice.text())
         quantity_val = int(self.spinBox1.text())
-        category_val = int(self.comboBox.text())
+        category_index = self.comboBox.currentIndex()
+        category_id = self.comboBox.itemData(category_index)
+        db = Database.get_instance()
+        db.save_product(name_val, price_val, quantity_val, category_id)
 
+    # def save_product(self):
+    #     name_val = self.lineName.text()
+    #     price_val = int(self.linePrice.text())
+    #     quantity_val = int(self.spinBox1.text())
+    #     category_val = int(self.comboBox.text())
+    #
+    #     try:
+    #         cursor = conn.cursor()
+    #         cursor.execute("INSERT INTO task (name, price, quantity, category_id) VALUES ( %s, %s, %s, %s)",
+    #                        (name_val, price_val, quantity_val, category_val))
+    #         conn.commit()
+    #         # conn.close()
+    #         print("Продукт успешно добавлен в базу данных.")
+    #     except (Exception, psycopg2.Error) as error:
+    #         print("Ошибка при работе с PostgreSQL:", error)
+
+    def load_categories(self):
+        db = Database.get_instance()
         try:
-            conn = psycopg2.connect(
-                dbname="task",
-                user="postgres",
-                password="postgres",
-                host="localhost",
-                port="5432"
-            )
-            cursor = conn.cursor()
-            cursor.execute("INSERT INTO task (name, price, quantity, category_id) VALUES ( %s, %s, %s, %s)",
-                           (name_val, price_val, quantity_val, category_val))
-            conn.commit()
-            conn.close()
-            print("Продукт успешно добавлен в базу данных.")
-        except (Exception, psycopg2.Error) as error:
-            print("Ошибка при работе с PostgreSQL:", error)
+            categories = db.query("SELECT * FROM category")
+            for category_id, category in categories:
+                self.comboBox.addItem(category, category_id)
+        except Exception as e:
+            print(f"Произошла ошибка при выполнении запроса: {e}")
 
 
 if __name__ == "__main__":
