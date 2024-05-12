@@ -1,2 +1,6 @@
 Python 3.12.0
+PostqresSQL
+
 pip install python-dotenv
+pip install PyQt5
+pip install psycopg2
