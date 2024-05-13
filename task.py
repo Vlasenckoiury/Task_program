@@ -132,6 +132,7 @@ class ProductForm(QMainWindow):
 
         self.comboBox = QtWidgets.QComboBox(self.centralwidget)
         self.comboBox.setGeometry(QtCore.QRect(210, 290, 231, 41))
+        self.comboBox.setStyleSheet("font: 14pt MS Shell Dlg 2")
         self.comboBox.setObjectName("comboBox")
         self.load_categories()
 
@@ -179,17 +180,10 @@ class ProductForm(QMainWindow):
         self.tableWidget.setObjectName("tableWidget")
         self.tableWidget.setColumnCount(5)
         self.tableWidget.setRowCount(0)
-        self.tableWidget.setHorizontalHeaderLabels(["ID", "Name", "Price", "Quantity", "Category"])
-        # self.load_tasks()
-        rowPosition = self.tableWidget.rowCount()                               # +++
-        self.tableWidget.insertRow(rowPosition)                                 # +++
-
-        self.tableWidget.setItem(rowPosition, 0, QtWidgets.QTableWidgetItem('name'))  # похожее что добавляет в колонку
+        self.tableWidget.setHorizontalHeaderLabels(["ID", "Название", "Цена", "Количество", "Категория"])
+        self.load_tasks()
 
         MainWindow.setCentralWidget(self.centralwidget)
-        # self.statusbar = QtWidgets.QStatusBar(MainWindow)
-        # self.statusbar.setObjectName("statusbar")
-        # MainWindow.setStatusBar(self.statusbar)
 
     def save_product(self):
         name_val = self.lineName.text()
@@ -199,6 +193,7 @@ class ProductForm(QMainWindow):
         category_id = self.comboBox.itemData(category_index)
         db = Database.get_instance()
         db.save_product(name_val, price_val, quantity_val, category_id)
+        self.load_tasks()
 
     def load_categories(self):
         db = Database.get_instance()
@@ -213,19 +208,30 @@ class ProductForm(QMainWindow):
         db = Database.get_instance()
         try:
             tasks = db.query("SELECT * FROM task")
-            for task in tasks:
-                return task
+            categories = db.query("SELECT * FROM category")
+            return tasks, categories
         except Exception as e:
             print(f"Произошла ошибка при выполнении запроса: {e}")
 
     def load_tasks(self):
-        tasks = self.fetch_tasks()
-        if tasks:
-            self.tableWidget.setRowCount(len(tasks))
-            for i, task in tasks:
-                for j, value in task:
-                    item = QtWidgets.QTableWidgetItem(str(value))  # Создание объекта QTableWidgetItem
-                    self.tableWidget.setItem(i, j, item)
+        tasks, categories = self.fetch_tasks()
+        row = 0
+        self.tableWidget.setRowCount(len(tasks))
+        category_dict = {category[0]: category[1] for category in categories}
+        try:
+            for task in tasks:
+                for col, value in enumerate(task):
+                    if col == 2:  # Проверяем второй элемент, который является id категории
+                        category_id = value
+                        category_name = category_dict.get(category_id, "Нет категории")
+                        self.tableWidget.setItem(row, 0, QtWidgets.QTableWidgetItem(str(task[0])))
+                        self.tableWidget.setItem(row, 1, QtWidgets.QTableWidgetItem(str(task[1])))
+                        self.tableWidget.setItem(row, 2, QtWidgets.QTableWidgetItem(str(task[3])))
+                        self.tableWidget.setItem(row, 3, QtWidgets.QTableWidgetItem(str(task[4])))
+                        self.tableWidget.setItem(row, 4, QtWidgets.QTableWidgetItem(str(category_name)))
+                        row += 1
+        except Exception as e:
+            print(f"Произошла ошибка при заполнении таблицы: {e}")
 
 
 if __name__ == "__main__":
