@@ -60,13 +60,14 @@ class Database:
                 print("Продукт успешно добавлен в базу данных.")
         except (Exception, psycopg2.Error) as error:
             print("Ошибка при сохранении с PostgreSQL:", error)
-            self.connection.rollback()
 
     def update_database(self, row_id, column, new_value):
         column_mapping = {
+            0: 'id',
             1: 'name',
             2: 'price',
             3: 'quantity',
+            4: 'category_id',
         }
         column_name = column_mapping.get(column)
         try:
@@ -87,7 +88,6 @@ class Database:
         except (Exception, psycopg2.Error) as error:
             print("Ошибка при удалении с PostgreSQL:", error)
             self.connection.rollback()
-
 
 
 class ProductForm(QMainWindow):
@@ -267,14 +267,17 @@ class ProductForm(QMainWindow):
             print("Нельзя удалять записи в режиме просмотра")
 
     def save_product(self):
-        name_val = self.lineName.text()
-        price_val = int(self.linePrice.text())
-        quantity_val = int(self.spinBox1.text())
-        category_index = self.comboBox.currentIndex()
-        category_id = self.comboBox.itemData(category_index)
-        db = Database.get_instance()
-        db.save_product(name_val, price_val, quantity_val, category_id)
-        self.load_tasks()
+        try:
+            name_val = self.lineName.text()
+            price_val = int(self.linePrice.text())
+            quantity_val = int(self.spinBox1.text())
+            category_index = self.comboBox.currentIndex()
+            category_id = self.comboBox.itemData(category_index)
+            db = Database.get_instance()
+            db.save_product(name_val, price_val, quantity_val, category_id)
+            self.load_tasks()
+        except Exception as e:
+            print(f"Введите значение. Ошибка {e}")
 
     def load_categories(self):
         db = Database.get_instance()
@@ -289,13 +292,21 @@ class ProductForm(QMainWindow):
         db = Database.get_instance()
         try:
             tasks = db.query("SELECT * FROM task ORDER BY id")
+            return tasks
+        except Exception as e:
+            print(f"Произошла ошибка при выполнении запроса: {e}")
+
+    def fetch_category(self):
+        db = Database.get_instance()
+        try:
             categories = db.query("SELECT * FROM category ")
-            return tasks, categories
+            return categories
         except Exception as e:
             print(f"Произошла ошибка при выполнении запроса: {e}")
 
     def load_tasks(self):
-        tasks, categories = self.fetch_tasks()
+        tasks = self.fetch_tasks()
+        categories = self.fetch_category()
         row = 0
         self.tableWidget.setRowCount(len(tasks))
         category_dict = {category[0]: category[1] for category in categories}
