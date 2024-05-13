@@ -61,6 +61,21 @@ class Database:
             print("Ошибка при работе с PostgreSQL:", error)
             self.connection.rollback()
 
+    def update_database(self, row_id, column, new_value):
+        column_mapping = {
+            1: 'name',
+            2: 'price',
+            3: 'quantity',
+        }
+        column_name = column_mapping.get(column)
+        try:
+            with self.connection.cursor() as cursor:
+                cursor.execute(f"UPDATE task SET {column_name} = %s WHERE id = %s", (new_value, row_id))
+                self.connection.commit()
+                print("Данные сохранены")
+        except Exception as e:
+            print(f"Данные не обновились: {e}")
+
 
 class ProductForm(QMainWindow):
     def __init__(self, MainWindow):
@@ -143,10 +158,10 @@ class ProductForm(QMainWindow):
         font.setBold(True)
         font.setWeight(75)
         self.pushButtonAdd.setFont(font)
-        self.pushButtonAdd.setStyleSheet("background-color: rgb(0, 255, 0)")
+        self.pushButtonAdd.setStyleSheet("background-color: rgb(0, 255, 0);border-radius:10px")
         self.pushButtonAdd.setObjectName("pushButtonAdd")
         self.pushButtonAdd.setText("ADD")
-        self.pushButtonAdd.clicked.connect(self.save_product)
+        self.pushButtonAdd.clicked.connect(self.save_product)  # добавить возможность, если не введено ,заново вести,а не закрывать программу
 
         self.pushButtonEdit = QtWidgets.QPushButton(self.centralwidget)
         self.pushButtonEdit.setGeometry(QtCore.QRect(170, 400, 131, 51))
@@ -156,6 +171,8 @@ class ProductForm(QMainWindow):
         font.setWeight(75)
         self.pushButtonEdit.setFont(font)
         self.pushButtonEdit.setText("EDIT")
+        self.pushButtonEdit.setStyleSheet("background-color: rgb(255, 241, 38);border-radius:10px")
+        self.pushButtonEdit.clicked.connect(self.toggle_editing)
         self.pushButtonEdit.setObjectName("pushButtonEdit")
 
         self.pushButtonDelete = QtWidgets.QPushButton(self.centralwidget)
@@ -165,7 +182,7 @@ class ProductForm(QMainWindow):
         font.setBold(True)
         font.setWeight(75)
         self.pushButtonDelete.setFont(font)
-        self.pushButtonDelete.setStyleSheet("background-color:rgb(255, 0, 0)")
+        self.pushButtonDelete.setStyleSheet("background-color:rgb(255, 0, 0);border-radius:10px")
         self.pushButtonDelete.setText("DELETE")
         self.pushButtonDelete.setObjectName("pushButtonDelete")
 
@@ -182,8 +199,45 @@ class ProductForm(QMainWindow):
         self.tableWidget.setRowCount(0)
         self.tableWidget.setHorizontalHeaderLabels(["ID", "Название", "Цена", "Количество", "Категория"])
         self.load_tasks()
+        # self.tableWidget.cellChanged.connect(self.handle_cell_changed)
+
+        self.tableWidget.setEditTriggers(QTableWidget.NoEditTriggers)
+        self.edit_mode_enabled = False
 
         MainWindow.setCentralWidget(self.centralwidget)
+
+    def toggle_editing(self):
+        self.edit_mode_enabled = not self.edit_mode_enabled
+        if self.edit_mode_enabled:
+            # Включаем редактирование при нажатии кнопки "EDIT"
+            self.set_editing_enabled(True)
+            self.tableWidget.cellChanged.connect(self.handle_cell_changed)
+        else:
+            # Выключаем редактирование и сохраняем изменения при нажатии кнопки "SAVE"
+            self.set_editing_enabled(False)
+
+    def set_editing_enabled(self, enabled):
+        if enabled:
+            # Включаем редактирование для всей таблицы
+            self.tableWidget.setEditTriggers(QtWidgets.QAbstractItemView.AllEditTriggers)
+            self.pushButtonEdit.setText("FINISH EDITING")
+            self.pushButtonEdit.setStyleSheet("background-color:rgb(81, 255, 0);border-radius:10px")
+        else:
+            # Выключаем редактирование для всей таблицы
+            self.tableWidget.setEditTriggers(QtWidgets.QAbstractItemView.NoEditTriggers)
+            self.pushButtonEdit.setText("EDIT")
+            self.pushButtonEdit.setStyleSheet("background-color: rgb(255, 241, 38);border-radius:10px")
+
+    def handle_cell_changed(self, row, column):
+        # Получаем ID строки
+        id_item = self.tableWidget.item(row, 0)
+        if id_item is not None:
+            row_id = id_item.text()
+            # Получаем новое значение
+            new_value = self.tableWidget.item(row, column).text()
+            # Отправляем запрос на изменение значения в базе данных
+            db = Database.get_instance()
+            db.update_database(row_id, column, new_value)
 
     def save_product(self):
         name_val = self.lineName.text()
@@ -207,8 +261,8 @@ class ProductForm(QMainWindow):
     def fetch_tasks(self):
         db = Database.get_instance()
         try:
-            tasks = db.query("SELECT * FROM task")
-            categories = db.query("SELECT * FROM category")
+            tasks = db.query("SELECT * FROM task ORDER BY id")
+            categories = db.query("SELECT * FROM category ")
             return tasks, categories
         except Exception as e:
             print(f"Произошла ошибка при выполнении запроса: {e}")
