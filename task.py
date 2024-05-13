@@ -22,8 +22,7 @@ class Database:
             Database()
         return Database._instance
 
-    def connect(self):
-        """Подключается к базе данных."""
+    def connect(self):  # Подключение к бд
         try:
             self.connection = psycopg2.connect(
                 dbname="task",
@@ -36,19 +35,20 @@ class Database:
             print(f"Ошибка подключения к базе данных: {e}")
             raise e
 
-    def close(self):
-        """Закрывает соединение с базой данных."""
+    def close(self):  # Закрывает соединение с базой данных.
         if self.connection:
             self.connection.close()
 
-    def query(self, sql):
-        """Выполняет SQL запрос и возвращает данные."""
-        with self.connection.cursor() as cursor:
-            cursor.execute(sql)
-            return cursor.fetchall()
+    def query(self, sql):  # Выполняет SQL запрос и возвращает данные.
+        try:
+            with self.connection.cursor() as cursor:
+                cursor.execute(sql)
+                return cursor.fetchall()
+        except psycopg2.Error as e:
+            print(f"Ошибка при выполнении запроса: {e}")
+            return None
 
-    def save_product(self, name, price, quantity, category_id):
-        """Добавляет продукт в базу данных."""
+    def save_product(self, name, price, quantity, category_id):  # Добавление продукта в бд
         try:
             with self.connection.cursor() as cursor:
                 cursor.execute(
@@ -69,6 +69,8 @@ class ProductForm(QMainWindow):
         MainWindow.setObjectName("MainWindow")
         MainWindow.resize(1191, 657)
         MainWindow.setMouseTracking(False)
+        MainWindow.setWindowTitle("My Form")
+        MainWindow.setWindowIcon(QIcon('icon.png'))
         self.centralwidget = QtWidgets.QWidget(MainWindow)
         self.centralwidget.setObjectName("centralwidget")
 
@@ -79,6 +81,7 @@ class ProductForm(QMainWindow):
         font.setBold(False)
         font.setWeight(50)
         self.name.setFont(font)
+        self.name.setText("Название")
         self.name.setObjectName("name")
 
         self.lineName = QtWidgets.QLineEdit(self.centralwidget)
@@ -93,6 +96,7 @@ class ProductForm(QMainWindow):
         font.setBold(False)
         font.setWeight(50)
         self.price.setFont(font)
+        self.price.setText("Цена")
         self.price.setObjectName("price")
 
         self.linePrice = QtWidgets.QLineEdit(self.centralwidget)
@@ -107,6 +111,7 @@ class ProductForm(QMainWindow):
         font.setBold(False)
         font.setWeight(50)
         self.quantity.setFont(font)
+        self.quantity.setText("Количество")
         self.quantity.setObjectName("quantity")
 
         self.spinBox1 = QtWidgets.QSpinBox(self.centralwidget)
@@ -122,6 +127,7 @@ class ProductForm(QMainWindow):
         font.setBold(False)
         font.setWeight(50)
         self.category.setFont(font)
+        self.category.setText("Категория")
         self.category.setObjectName("category")
 
         self.comboBox = QtWidgets.QComboBox(self.centralwidget)
@@ -131,17 +137,35 @@ class ProductForm(QMainWindow):
 
         self.pushButtonAdd = QtWidgets.QPushButton(self.centralwidget)
         self.pushButtonAdd.setGeometry(QtCore.QRect(30, 400, 121, 51))
+        font = QtGui.QFont()
+        font.setPointSize(10)
+        font.setBold(True)
+        font.setWeight(75)
+        self.pushButtonAdd.setFont(font)
         self.pushButtonAdd.setStyleSheet("background-color: rgb(0, 255, 0)")
         self.pushButtonAdd.setObjectName("pushButtonAdd")
+        self.pushButtonAdd.setText("ADD")
         self.pushButtonAdd.clicked.connect(self.save_product)
 
         self.pushButtonEdit = QtWidgets.QPushButton(self.centralwidget)
         self.pushButtonEdit.setGeometry(QtCore.QRect(170, 400, 131, 51))
+        font = QtGui.QFont()
+        font.setPointSize(10)
+        font.setBold(True)
+        font.setWeight(75)
+        self.pushButtonEdit.setFont(font)
+        self.pushButtonEdit.setText("EDIT")
         self.pushButtonEdit.setObjectName("pushButtonEdit")
 
         self.pushButtonDelete = QtWidgets.QPushButton(self.centralwidget)
         self.pushButtonDelete.setGeometry(QtCore.QRect(320, 400, 121, 51))
+        font = QtGui.QFont()
+        font.setPointSize(10)
+        font.setBold(True)
+        font.setWeight(75)
+        self.pushButtonDelete.setFont(font)
         self.pushButtonDelete.setStyleSheet("background-color:rgb(255, 0, 0)")
+        self.pushButtonDelete.setText("DELETE")
         self.pushButtonDelete.setObjectName("pushButtonDelete")
 
         self.label = QtWidgets.QLabel(self.centralwidget)
@@ -155,47 +179,17 @@ class ProductForm(QMainWindow):
         self.tableWidget.setObjectName("tableWidget")
         self.tableWidget.setColumnCount(5)
         self.tableWidget.setRowCount(0)
-        item = QtWidgets.QTableWidgetItem()
-        self.tableWidget.setHorizontalHeaderItem(0, item)
-        item = QtWidgets.QTableWidgetItem()
-        self.tableWidget.setHorizontalHeaderItem(1, item)
-        item = QtWidgets.QTableWidgetItem()
-        self.tableWidget.setHorizontalHeaderItem(2, item)
-        item = QtWidgets.QTableWidgetItem()
-        self.tableWidget.setHorizontalHeaderItem(3, item)
-        item = QtWidgets.QTableWidgetItem()
-        self.tableWidget.setHorizontalHeaderItem(4, item)
+        self.tableWidget.setHorizontalHeaderLabels(["ID", "Name", "Price", "Quantity", "Category"])
+        # self.load_tasks()
+        rowPosition = self.tableWidget.rowCount()                               # +++
+        self.tableWidget.insertRow(rowPosition)                                 # +++
+
+        self.tableWidget.setItem(rowPosition, 0, QtWidgets.QTableWidgetItem('name'))  # похожее что добавляет в колонку
+
         MainWindow.setCentralWidget(self.centralwidget)
-        self.statusbar = QtWidgets.QStatusBar(MainWindow)
-        self.statusbar.setObjectName("statusbar")
-        MainWindow.setStatusBar(self.statusbar)
-
-        self.retranslateUi(MainWindow)
-        QtCore.QMetaObject.connectSlotsByName(MainWindow)
-
-    def retranslateUi(self, MainWindow):
-        _translate = QtCore.QCoreApplication.translate
-        MainWindow.setWindowTitle(_translate("My Form", "My Form"))
-        MainWindow.setWindowIcon(QIcon('icon.png'))
-        self.name.setText(_translate("MainWindow", "Название"))
-        self.price.setText(_translate("MainWindow", "Цена"))
-        self.quantity.setText(_translate("MainWindow", "Количество"))
-        self.category.setText(_translate("MainWindow", "Категория"))
-
-        self.pushButtonAdd.setText(_translate("MainWindow", "ADD"))
-        self.pushButtonEdit.setText(_translate("MainWindow", "EDIT"))
-        self.pushButtonDelete.setText(_translate("MainWindow", "DELETE"))
-
-        item = self.tableWidget.horizontalHeaderItem(0)
-        item.setText(_translate("MainWindow", "ID"))
-        item = self.tableWidget.horizontalHeaderItem(1)
-        item.setText(_translate("MainWindow", "Название"))
-        item = self.tableWidget.horizontalHeaderItem(2)
-        item.setText(_translate("MainWindow", "Цена"))
-        item = self.tableWidget.horizontalHeaderItem(3)
-        item.setText(_translate("MainWindow", "Количество"))
-        item = self.tableWidget.horizontalHeaderItem(4)
-        item.setText(_translate("MainWindow", "Категория"))
+        # self.statusbar = QtWidgets.QStatusBar(MainWindow)
+        # self.statusbar.setObjectName("statusbar")
+        # MainWindow.setStatusBar(self.statusbar)
 
     def save_product(self):
         name_val = self.lineName.text()
@@ -214,6 +208,24 @@ class ProductForm(QMainWindow):
                 self.comboBox.addItem(category, category_id)
         except Exception as e:
             print(f"Произошла ошибка при выполнении запроса: {e}")
+
+    def fetch_tasks(self):
+        db = Database.get_instance()
+        try:
+            tasks = db.query("SELECT * FROM task")
+            for task in tasks:
+                return task
+        except Exception as e:
+            print(f"Произошла ошибка при выполнении запроса: {e}")
+
+    def load_tasks(self):
+        tasks = self.fetch_tasks()
+        if tasks:
+            self.tableWidget.setRowCount(len(tasks))
+            for i, task in tasks:
+                for j, value in task:
+                    item = QtWidgets.QTableWidgetItem(str(value))  # Создание объекта QTableWidgetItem
+                    self.tableWidget.setItem(i, j, item)
 
 
 if __name__ == "__main__":
