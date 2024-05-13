@@ -3,6 +3,10 @@ from PyQt5.QtWidgets import *
 from PyQt5 import QtCore, QtWidgets, QtGui
 from PyQt5.QtGui import QIcon
 import psycopg2
+from dotenv import load_dotenv
+import os
+
+load_dotenv()
 
 
 class Database:
@@ -25,11 +29,11 @@ class Database:
     def connect(self):  # Подключение к бд
         try:
             self.connection = psycopg2.connect(
-                dbname="task",
-                user="postgres",
-                password="postgres",
-                host="localhost",
-                port="5432"
+                dbname=os.getenv('DB_NAME'),
+                user=os.getenv('USER'),
+                password=os.getenv('PASSWORD'),
+                host=os.getenv('HOST'),
+                port=os.getenv('PORT')
             )
         except psycopg2.DatabaseError as e:
             print(f"Ошибка подключения к базе данных: {e}")
