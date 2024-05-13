@@ -43,6 +43,7 @@ class Database:
         try:
             with self.connection.cursor() as cursor:
                 cursor.execute(sql)
+                self.connection.commit()
                 return cursor.fetchall()
         except psycopg2.Error as e:
             print(f"Ошибка при выполнении запроса: {e}")
@@ -58,7 +59,7 @@ class Database:
                 self.connection.commit()
                 print("Продукт успешно добавлен в базу данных.")
         except (Exception, psycopg2.Error) as error:
-            print("Ошибка при работе с PostgreSQL:", error)
+            print("Ошибка при сохранении с PostgreSQL:", error)
             self.connection.rollback()
 
     def update_database(self, row_id, column, new_value):
@@ -73,8 +74,20 @@ class Database:
                 cursor.execute(f"UPDATE task SET {column_name} = %s WHERE id = %s", (new_value, row_id))
                 self.connection.commit()
                 print("Данные сохранены")
-        except Exception as e:
-            print(f"Данные не обновились: {e}")
+        except (Exception, psycopg2.Error) as error:
+            print("Ошибка при обновлении с PostgreSQL:", error)
+            self.connection.rollback()
+
+    def delete_task(self, task_id):
+        try:
+            with self.connection.cursor() as cursor:
+                cursor.execute("DELETE FROM task WHERE id = %s", (task_id,))
+                self.connection.commit()
+                print("Запись успешно удалена")
+        except (Exception, psycopg2.Error) as error:
+            print("Ошибка при удалении с PostgreSQL:", error)
+            self.connection.rollback()
+
 
 
 class ProductForm(QMainWindow):
@@ -183,6 +196,7 @@ class ProductForm(QMainWindow):
         font.setWeight(75)
         self.pushButtonDelete.setFont(font)
         self.pushButtonDelete.setStyleSheet("background-color:rgb(255, 0, 0);border-radius:10px")
+        self.pushButtonDelete.clicked.connect(self.delete_task)
         self.pushButtonDelete.setText("DELETE")
         self.pushButtonDelete.setObjectName("pushButtonDelete")
 
@@ -199,7 +213,6 @@ class ProductForm(QMainWindow):
         self.tableWidget.setRowCount(0)
         self.tableWidget.setHorizontalHeaderLabels(["ID", "Название", "Цена", "Количество", "Категория"])
         self.load_tasks()
-        # self.tableWidget.cellChanged.connect(self.handle_cell_changed)
 
         self.tableWidget.setEditTriggers(QTableWidget.NoEditTriggers)
         self.edit_mode_enabled = False
@@ -208,6 +221,7 @@ class ProductForm(QMainWindow):
 
     def toggle_editing(self):
         self.edit_mode_enabled = not self.edit_mode_enabled
+        self.set_editing_enabled(self.edit_mode_enabled)
         if self.edit_mode_enabled:
             # Включаем редактирование при нажатии кнопки "EDIT"
             self.set_editing_enabled(True)
@@ -238,6 +252,19 @@ class ProductForm(QMainWindow):
             # Отправляем запрос на изменение значения в базе данных
             db = Database.get_instance()
             db.update_database(row_id, column, new_value)
+
+    def delete_task(self):
+        if self.edit_mode_enabled:
+            sel_row = self.tableWidget.currentRow()
+            if sel_row >= 0:
+                task_id = int(self.tableWidget.item(sel_row, 0).text())
+                db = Database.get_instance()
+                db.delete_task(task_id)
+                self.load_tasks()
+            else:
+                print("Выберите задачу для удаления")
+        else:
+            print("Нельзя удалять записи в режиме просмотра")
 
     def save_product(self):
         name_val = self.lineName.text()
