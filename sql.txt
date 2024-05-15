@@ -1,0 +1,13 @@
+CREATE TABLE category (
+    category_id SERIAL PRIMARY KEY,
+    category Character Varying(255)
+);
+
+
+CREATE TABLE task (
+    id SERIAL PRIMARY KEY,
+	name CHARACTER VARYING(255),
+	price bigint,
+	quantity integer,
+    category_id INTEGER REFERENCES categor(category_id)
+);

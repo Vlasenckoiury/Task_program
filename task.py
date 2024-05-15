@@ -318,7 +318,7 @@ class ProductForm(QMainWindow):
         try:
             for task in tasks:
                 for col, value in enumerate(task):
-                    if col == 2:  # Проверяем второй элемент, который является id категории
+                    if col == 4:  # Проверяем второй элемент, который является id категории
                         category_id = value
                         category_name = category_dict.get(category_id, "Нет категории")
                         self.tableWidget.setItem(row, 0, QtWidgets.QTableWidgetItem(str(task[0])))
