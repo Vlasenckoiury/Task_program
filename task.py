@@ -18,8 +18,9 @@ class Database:
             Database._instance = self
             self.connection = None
             self.connect()
+            self.create_db()
         else:
-            raise Exception("You cannot create another Database class")
+            raise Exception("Вы не можете создать другой класс базы данных")
 
     @staticmethod
     def get_instance():
@@ -43,6 +44,29 @@ class Database:
     def close(self):  # Закрывает соединение с базой данных.
         if self.connection:
             self.connection.close()
+
+    def create_db(self):
+        try:
+            with self.connection.cursor() as cursor:
+                cursor.execute(
+                    "CREATE TABLE IF NOT EXISTS category ("
+                    "category_id SERIAL PRIMARY KEY NOT NULL,"
+                    "category Character Varying(255) NOT NULL"
+                    ")",
+                )
+                cursor.execute(
+                    "CREATE TABLE IF NOT EXISTS task ("
+                    "id SERIAL PRIMARY KEY NOT NULL,"
+                    "name Character Varying(255) NOT NULL,"
+                    "price bigint NOT NULL,"
+                    "quantity integer NOT NULL,"
+                    "category_id INTEGER REFERENCES category(category_id) NOT NULL"
+                    ")",
+                )
+                self.connection.commit()
+                print("База данных успешно создана.")
+        except (Exception, psycopg2.Error) as error:
+            print("Ошибка при создании базы данных:", error)
 
     def query(self, sql):  # Выполняет SQL запрос и возвращает данные.
         try:
@@ -93,6 +117,16 @@ class Database:
         except (Exception, psycopg2.Error) as error:
             print("Ошибка при удалении с PostgreSQL:", error)
             self.connection.rollback()
+
+    def save_category(self, category_name):
+        if not category_name:
+            raise ValueError("Значение категории не может быть пустым")
+        try:
+            with self.connection.cursor() as cursor:
+                cursor.execute(f"INSERT INTO category(category) VALUES ('{category_name}')")
+                self.connection.commit()
+        except (Exception, psycopg2.Error) as error:
+            print("Ошибка при сохранении категорий", error)
 
 
 class ProductForm(QMainWindow):
@@ -179,7 +213,8 @@ class ProductForm(QMainWindow):
         self.pushButtonAdd.setStyleSheet("background-color: rgb(0, 255, 0);border-radius:10px")
         self.pushButtonAdd.setObjectName("pushButtonAdd")
         self.pushButtonAdd.setText("ADD")
-        self.pushButtonAdd.clicked.connect(self.save_product)  # добавить возможность, если не введено ,заново вести,а не закрывать программу
+        self.pushButtonAdd.clicked.connect(self.save_product)
+        self.pushButtonAdd.clicked.connect(self.clear)
 
         self.pushButtonEdit = QtWidgets.QPushButton(self.centralwidget)
         self.pushButtonEdit.setGeometry(QtCore.QRect(170, 400, 131, 51))
@@ -205,6 +240,28 @@ class ProductForm(QMainWindow):
         self.pushButtonDelete.setText("DELETE")
         self.pushButtonDelete.setObjectName("pushButtonDelete")
 
+        self.label_category = QtWidgets.QLabel(self.centralwidget)
+        self.label_category.setGeometry(QtCore.QRect(30, 500, 191, 31))
+        font = QtGui.QFont()
+        font.setPointSize(14)
+        font.setBold(False)
+        font.setWeight(50)
+        self.label_category.setFont(font)
+        self.label_category.setText("Добавить Категорию")
+        self.label_category.setObjectName("label_category")
+
+        self.lineEdit_Category = QtWidgets.QLineEdit(self.centralwidget)
+        self.lineEdit_Category.setGeometry(QtCore.QRect(220, 500, 191, 31))
+        self.lineEdit_Category.setObjectName("lineEdit_Category")
+
+        self.pushButton_category_add = QtWidgets.QPushButton(self.centralwidget)
+        self.pushButton_category_add.setGeometry(QtCore.QRect(420, 500, 51, 31))
+        self.pushButton_category_add.setStyleSheet("background-color: rgb(0, 255, 0); border-radius:10px")
+        self.pushButton_category_add.setText("ADD")
+        self.pushButton_category_add.clicked.connect(self.save_category)
+        self.pushButton_category_add.clicked.connect(self.clear_category)
+        self.pushButton_category_add.setObjectName("pushButton_2_ADD")
+
         self.label = QtWidgets.QLabel(self.centralwidget)
         self.label.setGeometry(QtCore.QRect(50, 350, 151, 41))
         self.label.setMouseTracking(True)
@@ -214,9 +271,15 @@ class ProductForm(QMainWindow):
         self.tableWidget = QtWidgets.QTableWidget(self.centralwidget)
         self.tableWidget.setGeometry(QtCore.QRect(480, 80, 661, 481))
         self.tableWidget.setObjectName("tableWidget")
-        self.tableWidget.setColumnCount(5)
+        self.tableWidget.setColumnCount(6)
         self.tableWidget.setRowCount(0)
-        self.tableWidget.setHorizontalHeaderLabels(["ID", "Название", "Цена", "Количество", "Категория"])
+        self.tableWidget.setHorizontalHeaderLabels(["ID", "Название", "Цена", "Количество", "Общая Стоимость", "Категория"])
+        self.tableWidget.setColumnWidth(0, 50)  # Устанавливаем ширину колонки "ID"
+        self.tableWidget.setColumnWidth(1, 150)  # Устанавливаем ширину колонки "Название"
+        self.tableWidget.setColumnWidth(2, 80)  # Устанавливаем ширину колонки "Цена"
+        self.tableWidget.setColumnWidth(3, 80)  # Устанавливаем ширину колонки "Количество"
+        self.tableWidget.setColumnWidth(4, 120)  # Устанавливаем ширину колонки "Общая Стоимость"
+        self.tableWidget.setColumnWidth(5, 120)  # Устанавливаем ширину колонки "Категория"
         self.load_tasks()
 
         self.tableWidget.setEditTriggers(QTableWidget.NoEditTriggers)
@@ -285,6 +348,7 @@ class ProductForm(QMainWindow):
             print(f"Введите значение. Ошибка {e}")
 
     def load_categories(self):
+        self.comboBox.clear()
         db = Database.get_instance()
         try:
             categories = db.query("SELECT * FROM category")
@@ -309,6 +373,15 @@ class ProductForm(QMainWindow):
         except Exception as e:
             print(f"Произошла ошибка при выполнении запроса: {e}")
 
+    def save_category(self):
+        db = Database.get_instance()
+        try:
+            category_name = self.lineEdit_Category.text()
+            db.save_category(category_name)
+            self.load_categories()
+        except Exception as e:
+            print(f"Произошла ошибка при сохранении категории: {e}")
+
     def load_tasks(self):
         tasks = self.fetch_tasks()
         categories = self.fetch_category()
@@ -323,12 +396,21 @@ class ProductForm(QMainWindow):
                         category_name = category_dict.get(category_id, "Нет категории")
                         self.tableWidget.setItem(row, 0, QtWidgets.QTableWidgetItem(str(task[0])))
                         self.tableWidget.setItem(row, 1, QtWidgets.QTableWidgetItem(str(task[1])))
-                        self.tableWidget.setItem(row, 2, QtWidgets.QTableWidgetItem(str(task[3])))
-                        self.tableWidget.setItem(row, 3, QtWidgets.QTableWidgetItem(str(task[4])))
-                        self.tableWidget.setItem(row, 4, QtWidgets.QTableWidgetItem(str(category_name)))
+                        self.tableWidget.setItem(row, 2, QtWidgets.QTableWidgetItem(str(task[2])))
+                        self.tableWidget.setItem(row, 3, QtWidgets.QTableWidgetItem(str(task[3])))
+                        self.tableWidget.setItem(row, 4, QtWidgets.QTableWidgetItem(str(task[2] * task[3])))
+                        self.tableWidget.setItem(row, 5, QtWidgets.QTableWidgetItem(str(category_name)))
                         row += 1
         except Exception as e:
             print(f"Произошла ошибка при заполнении таблицы: {e}")
+
+    def clear(self):
+        self.lineName.clear()
+        self.linePrice.clear()
+        self.spinBox1.clear()
+
+    def clear_category(self):
+        self.lineEdit_Category.clear()
 
 
 if __name__ == "__main__":
